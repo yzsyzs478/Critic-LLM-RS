@@ -32,7 +32,7 @@ def main():
                 continue
             user_data = json.loads(line)
             user_id = user_data["user_id"]
-            recommendation_subset = user_data["recommendation_subset"]
+            recommendation_subset = user_data["watched_movies_subset"]
             validation_set = user_data.get("validation_set", None)
 
             adjusted_titles = extract_titles(user_data["adjusted_recommendations"])
