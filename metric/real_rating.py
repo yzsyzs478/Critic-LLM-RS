@@ -137,7 +137,6 @@ def main():
 
     print(
         f"Updated ratings saved to '{args.output_file}'. "
-        f"Changes logged to '{args.log_file}'. Total updates: {len(changes_log)}"
     )
 
 
