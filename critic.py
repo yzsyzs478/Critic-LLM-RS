@@ -20,27 +20,95 @@ bert_model = None
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Critic Rating Predictor Training")
+    parser = argparse.ArgumentParser(
+        description="Train a BERT-based Critic rating predictor for movie recommendations."
+    )
 
-    parser.add_argument("--data_path", type=str, default="critic_data_sample.json")
-    parser.add_argument("--model_name", type=str, default="bert-base-uncased")
+    parser.add_argument(
+        "--data_path",
+        type=str,
+        default="critic_data_sample.json",
+        help="Path to the training data JSON file (list of user entries with History / PredictedMovie / PredictedRating)."
+    )
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        default="bert-base-uncased",
+        help="Name or path of the Transformer encoder used to generate text embeddings (e.g., bert-base-uncased)."
+    )
 
-    parser.add_argument("--max_history_length", type=int, default=20)
-    parser.add_argument("--num_classes", type=int, default=10)
+    parser.add_argument(
+        "--max_history_length",
+        type=int,
+        default=20,
+        help="Maximum number of historical movies per user to encode; extra items are truncated, fewer are zero-padded."
+    )
+    parser.add_argument(
+        "--num_classes",
+        type=int,
+        default=10,
+        help="Number of discrete rating classes (e.g., 10 for ratings discretized into 0.5-step bins from 0.5 to 5.0)."
+    )
 
-    parser.add_argument("--hidden_size", type=int, default=1024)
+    parser.add_argument(
+        "--hidden_size",
+        type=int,
+        default=1024,
+        help="Hidden layer size of the MLP rating predictor."
+    )
 
-    parser.add_argument("--outer_batch_size", type=int, default=1000)
-    parser.add_argument("--inner_batch_size", type=int, default=16)
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--lr", type=float, default=5e-4)
-    parser.add_argument("--val_ratio", type=float, default=0.2)
-    parser.add_argument("--max_seq_length", type=int, default=512)
+    parser.add_argument(
+        "--outer_batch_size",
+        type=int,
+        default=1000,
+        help="Number of samples processed per outer batch (data is chunked to control memory when encoding with BERT)."
+    )
+    parser.add_argument(
+        "--inner_batch_size",
+        type=int,
+        default=16,
+        help="Mini-batch size used by the DataLoader when training the MLP within each outer batch."
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=100,
+        help="Number of training epochs over all outer batches."
+    )
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=5e-4,
+        help="Learning rate for the AdamW optimizer."
+    )
+    parser.add_argument(
+        "--val_ratio",
+        type=float,
+        default=0.2,
+        help="Fraction of each outer batch used as a validation split (0–1)."
+    )
+    parser.add_argument(
+        "--max_seq_length",
+        type=int,
+        default=512,
+        help="Maximum token length for the Transformer tokenizer when encoding movie texts."
+    )
 
-    parser.add_argument("--best_model_path", type=str, default="critic_b.pth")
-    parser.add_argument("--final_model_path", type=str, default="critic.pth")
+    parser.add_argument(
+        "--best_model_path",
+        type=str,
+        default="critic_b.pth",
+        help="Path to save the best model checkpoint (selected by highest validation micro-precision)."
+    )
+    parser.add_argument(
+        "--final_model_path",
+        type=str,
+        default="critic.pth",
+        help="Path to save the final model checkpoint at the end of training."
+    )
 
     return parser.parse_args()
+
 
 
 @torch.no_grad()
