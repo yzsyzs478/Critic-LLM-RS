@@ -467,86 +467,106 @@ def processBatch(
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Run Critic-LLM-RS with an LLM backend and a trained rating predictor."
+    )
     parser.add_argument(
         "--input",
-        default="user_movie_history_sample.jsonl"
+        default="user_movie_history_sample.jsonl",
+        help="Path to the user–movie interaction file (JSONL), e.g., user_movie_history_sample.jsonl."
     )
     parser.add_argument(
         "--movie_json",
-        default="movie.json"
+        default="movie.json",
+        help="Path to the movie metadata file (JSON or JSONL) containing title/director/cast info."
     )
     parser.add_argument(
         "--critic_ckpt",
-        default="critic.pth"
+        default="critic.pth",
+        help="Path to the trained rating predictor checkpoint (.pth)."
     )
     parser.add_argument(
         "--output_dir",
-        default="outputs"
+        default="outputs",
+        help="Directory where results, checkpoints, and logs will be saved."
     )
     parser.add_argument(
         "--force",
-        action="store_true"
+        action="store_true",
+        help="Re-process all users even if they are already recorded in done_ids.txt."
     )
     parser.add_argument(
         "--history_len",
         type=int,
-        default=20
+        default=20,
+        help="Maximum number of historical movies per user used as input to the critic model."
     )
     parser.add_argument(
         "--bert_model_name",
-        default="bert-base-uncased"
+        default="bert-base-uncased",
+        help="Name or path of the BERT (or other Transformer) model used to encode texts."
     )
     parser.add_argument(
         "--hidden_size",
         type=int,
-        default=1024
+        default=1024,
+        help="Hidden layer size of the rating predictor MLP."
     )
     parser.add_argument(
         "--num_classes",
         type=int,
-        default=10
+        default=10,
+        help="Number of discrete rating classes predicted by the critic model."
     )
     parser.add_argument(
         "--max_seq_length",
         type=int,
-        default=512
+        default=512,
+        help="Maximum token length for BERT tokenization when encoding movie texts."
     )
     parser.add_argument(
         "--api_key",
-        default=""
+        default="",
+        help="API key for the OpenAI-compatible LLM endpoint."
     )
     parser.add_argument(
         "--base_url",
-        default=" "
+        default=" ",
+        help="Base URL of the OpenAI-compatible LLM endpoint, e.g., http://127.0.0.1:8000/v1."
     )
     parser.add_argument(
         "--llm_model_name",
-        default="qwen3-8b"
+        default="qwen3-8b",
+        help="Model name exposed by the LLM endpoint, e.g., qwen3-8b."
     )
     parser.add_argument(
         "--llm_temperature",
         type=float,
-        default=0.7
+        default=0.7,
+        help="Sampling temperature for the LLM when generating recommendations."
     )
     parser.add_argument(
         "--llm_max_tokens",
         type=int,
-        default=1500
+        default=1500,
+        help="Maximum number of tokens to generate in each LLM call."
     )
     parser.add_argument(
         "--llm_outer_attempts",
         type=int,
-        default=5
+        default=5,
+        help="Maximum number of outer LLM recommendation attempts before giving up."
     )
     parser.add_argument(
         "--llm_api_retry",
         type=int,
-        default=5
+        default=5,
+        help="Maximum number of retries for failed LLM API calls (with exponential backoff)."
     )
     parser.add_argument(
         "--llm_template",
-        default="{title(year)}"
+        default="{title(year)}",
+        help="Output format template for LLM-recommended movies (e.g., {title(year)})."
     )
 
     args = parser.parse_args()
