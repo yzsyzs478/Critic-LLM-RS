@@ -153,7 +153,7 @@ effectively preventing **information leakage** and improving the **fairness** an
 Both our main script and the associated baseline scripts support using --help to list all available command-line arguments. For example:
 
 ```bash
-python critic-llm-rs.py --help
+python critic_llm_rs.py --help
 ```
 
 Example (truncated) output:
@@ -189,7 +189,7 @@ options:
 Run the following script to train the Recommendation Critic model:
 
 ```bash
-python critic.py --help
+python critic.py
 ```
 
 This script loads the **Recommendation Critic training set**, splits it into train/validation/test (7:2:1), and trains the critic to predict user ratings.
@@ -201,7 +201,7 @@ First, deploy an LLM locally **or** configure the corresponding API endpoint.
 Then run:
 
 ```bash
-python critic-llm-rs.py --help
+python critic_llm_rs.py
 ```
 
 This script:
