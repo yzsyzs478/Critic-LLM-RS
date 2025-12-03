@@ -1,10 +1,66 @@
-import openai
+import os
 import json
 import re
+import argparse
 import numpy as np
+import openai
 
-openai.api_base = ""
-openai.api_key = ""
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="GenRec-style generative movie recommendation with HR/NDCG evaluation."
+    )
+
+    parser.add_argument(
+        "--data_path",
+        type=str,
+        default="user_movie_history_sample.jsonl",
+        help="Path to the user–movie interaction file in JSONL format."
+    )
+    parser.add_argument(
+        "--output_path",
+        type=str,
+        default="llm_movie_genrec.json",
+        help="Path to save the LLM recommendation results and metrics (JSON)."
+    )
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        default="gpt-3.5-turbo",
+        help="LLM model name used for recommendations."
+    )
+    parser.add_argument(
+        "--api_base",
+        type=str,
+        default="",
+        help="Base URL of the OpenAI-compatible API endpoint."
+    )
+    parser.add_argument(
+        "--api_key",
+        type=str,
+        default="",
+        help="API key for the OpenAI-compatible endpoint."
+    )
+    parser.add_argument(
+        "--max_tokens",
+        type=int,
+        default=1500,
+        help="Maximum number of tokens to generate in each LLM call."
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.1,
+        help="Sampling temperature for the LLM."
+    )
+    parser.add_argument(
+        "--max_attempts",
+        type=int,
+        default=5,
+        help="Maximum number of retries for the LLM API call upon failure."
+    )
+
+    return parser.parse_args()
 
 
 def clean_title(title: str) -> str:
@@ -13,8 +69,14 @@ def clean_title(title: str) -> str:
     return title
 
 
-def suggestMovie(watchedMoviesSequence, attempt=1, max_attempts=5):
-    # the inference interface of a LLaMA-based generative recommendation model fine-tuned with LoRA
+def suggestMovie(
+    watchedMoviesSequence,
+    model_name: str,
+    max_tokens: int,
+    temperature: float,
+    attempt: int = 1,
+    max_attempts: int = 5,
+):
     instruction = (
         "INSTRUCTION:\n"
         "You are a generative recommendation model (GenRec-style). "
@@ -50,15 +112,15 @@ def suggestMovie(watchedMoviesSequence, attempt=1, max_attempts=5):
 
     messages = [
         {"role": "system", "content": "You are a large language model for generative recommendation."},
-        {"role": "user", "content": instruction + "\n\n" + input_block}
+        {"role": "user", "content": instruction + "\n\n" + input_block},
     ]
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model=model_name,
             messages=messages,
-            max_tokens=1500,
-            temperature=0.1
+            max_tokens=max_tokens,
+            temperature=temperature,
         )
         raw_text = response.choices[0].message.content
         lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
@@ -67,7 +129,14 @@ def suggestMovie(watchedMoviesSequence, attempt=1, max_attempts=5):
     except Exception as e:
         print(f"Error during API call: {e}")
         if attempt < max_attempts:
-            return suggestMovie(watchedMoviesSequence, attempt + 1, max_attempts=max_attempts)
+            return suggestMovie(
+                watchedMoviesSequence,
+                model_name=model_name,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                attempt=attempt + 1,
+                max_attempts=max_attempts,
+            )
         else:
             return []
 
@@ -93,9 +162,17 @@ def calculate_hr_ndcg(recommendations, validation_item, k=10):
     return hr_at_k, ndcg_at_k
 
 
-def processBatch(file_path, k_values=[10, 20, 50]):
+def processBatch(
+    file_path: str,
+    output_path: str,
+    model_name: str,
+    max_tokens: int,
+    temperature: float,
+    max_attempts: int,
+    k_values=[10, 20, 50],
+):
     with open(file_path, 'r', encoding='utf-8') as file:
-        users = [json.loads(line.strip()) for line in file]
+        users = [json.loads(line.strip()) for line in file if line.strip()]
 
     results = []
     agg_metrics = {k: {"HR": [], "NDCG": []} for k in k_values}
@@ -108,17 +185,23 @@ def processBatch(file_path, k_values=[10, 20, 50]):
         watched_sequence = history[:-1]
         validation_item = history[-1]
 
-        recommendations = suggestMovie(watched_sequence)
+        recommendations = suggestMovie(
+            watchedMoviesSequence=watched_sequence,
+            model_name=model_name,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            max_attempts=max_attempts,
+        )
 
         user_result = {
-            "user_id": user["user_id"],
+            "user_id": user.get("user_id"),
             "watched_sequence": watched_sequence,
             "validation_item": {
-                "title": validation_item["title"],
-                "rating": validation_item.get("rating", None)
+                "title": validation_item.get("title"),
+                "rating": validation_item.get("rating", None),
             },
             "raw_recommendations": recommendations,
-            "metrics": {}
+            "metrics": {},
         }
 
         for k in k_values:
@@ -130,7 +213,7 @@ def processBatch(file_path, k_values=[10, 20, 50]):
 
         results.append(user_result)
 
-    with open("llm_movie_genrec.json", "w", encoding="utf-8") as outfile:
+    with open(output_path, "w", encoding="utf-8") as outfile:
         json.dump(results, outfile, ensure_ascii=False, indent=4)
 
     for k in k_values:
@@ -145,5 +228,30 @@ def processBatch(file_path, k_values=[10, 20, 50]):
 
 
 if __name__ == "__main__":
-    file_path = "user_movie_history_sample.jsonl"
-    processBatch(file_path)
+    args = parse_args()
+
+    if args.api_base:
+        openai.api_base = args.api_base
+    else:
+        env_base = os.getenv("OPENAI_API_BASE")
+        if env_base:
+            openai.api_base = env_base
+
+    if args.api_key:
+        openai.api_key = args.api_key
+    else:
+        env_key = os.getenv("OPENAI_API_KEY")
+        if env_key:
+            openai.api_key = env_key
+
+    if not openai.api_key:
+        print("[WARN] openai.api_key is empty. Please pass --api_key or set OPENAI_API_KEY.")
+
+    processBatch(
+        file_path=args.data_path,
+        output_path=args.output_path,
+        model_name=args.model_name,
+        max_tokens=args.max_tokens,
+        temperature=args.temperature,
+        max_attempts=args.max_attempts,
+    )
