@@ -197,7 +197,7 @@ This script loads the **Recommendation Critic training set**, splits it into tra
 
 ### Step 2: Generate Critic-LLM-RS Recommendations
 
-First, deploy an LLM locally **or** configure the corresponding API endpoint.
+First, deploy an LLM locally **or** configure the corresponding API endpoint. In critic_llm_rs.py, we define three command-line arguments via parser.add_argument—--api_key, --base_url, and --llm_model_name—to configure the OpenAI-compatible LLM endpoint and model. Users can either modify the default values of these arguments directly in the code or explicitly pass them via the command line when running the script (e.g., python critic_llm_rs.py --api_key ...). All available arguments and their descriptions can be viewed using the --help flag.
 Then run:
 
 ```bash
