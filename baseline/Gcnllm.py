@@ -28,7 +28,7 @@ def parse_args():
         help="Path to save the recommendation results (JSON)."
     )
     parser.add_argument(
-        "--api_url",
+        "--base_url",
         type=str,
         default="",
         help="URL of the OpenAI-compatible chat completions endpoint."
@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument(
         "--model_name",
         type=str,
-        default="gpt-3.5-turbo",
+        default="",
         help="LLM model name used for all chat-completion calls."
     )
     parser.add_argument(
@@ -130,7 +130,7 @@ def calculate_similarity(embedding_u, embedding_i):
     return float(np.dot(embedding_u, embedding_i) / (norm_u * norm_i))
 
 
-def call_llm(api_url, api_key, model_name, messages, temperature=0.7, max_tokens=1500):
+def call_llm(base_url, api_key, model_name, messages, temperature=0.7, max_tokens=1500):
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -139,10 +139,15 @@ def call_llm(api_url, api_key, model_name, messages, temperature=0.7, max_tokens
         "model": model_name,
         "messages": messages,
         "max_tokens": max_tokens,
-        "temperature": temperature
+        "temperature": temperature,
+        "stream": False,
     }
+
+
+    full_url = base_url.rstrip("/") + "/chat/completions"
+
     try:
-        response = requests.post(api_url, headers=headers, json=data)
+        response = requests.post(full_url, headers=headers, json=data)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except Exception as e:
@@ -150,9 +155,10 @@ def call_llm(api_url, api_key, model_name, messages, temperature=0.7, max_tokens
         return ""
 
 
+
 def suggestMovies(
     watchedMoviesSubset,
-    api_url,
+    base_url,
     api_key,
     model_name,
     template="{title}",
@@ -183,7 +189,7 @@ def suggestMovies(
         {"role": "user", "content": user_content}
     ]
     content = call_llm(
-        api_url=api_url,
+        base_url=base_url,
         api_key=api_key,
         model_name=model_name,
         messages=messages,
@@ -232,7 +238,7 @@ def graph_conv_user_profile(
     user2items,
     item2users,
     item_info,
-    api_url,
+    base_url,
     api_key,
     model_name,
     temperature=0.7,
@@ -295,7 +301,7 @@ def graph_conv_user_profile(
         {"role": "user", "content": user_prompt}
     ]
     profile = call_llm(
-        api_url=api_url,
+        base_url=base_url,
         api_key=api_key,
         model_name=model_name,
         messages=messages,
@@ -316,7 +322,7 @@ def processBatch(
     user2items,
     item2users,
     item_info,
-    api_url,
+    base_url,
     api_key,
     model_name,
     history_length,
@@ -356,7 +362,7 @@ def processBatch(
 
         recommendation_response = suggestMovies(
             recommendation_subset,
-            api_url=api_url,
+            base_url=base_url,
             api_key=api_key,
             model_name=model_name,
             temperature=temperature,
@@ -389,7 +395,7 @@ def processBatch(
             user2items=user2items,
             item2users=item2users,
             item_info=item_info,
-            api_url=api_url,
+            base_url=base_url,
             api_key=api_key,
             model_name=model_name,
             temperature=temperature,
@@ -462,18 +468,18 @@ def processBatch(
 if __name__ == "__main__":
     args = parse_args()
 
-    if not args.api_url:
+    if not args.base_url:
         env_url = os.getenv("LLM_API_URL")
         if env_url:
-            args.api_url = env_url
+            args.base_url = env_url
 
     if not args.api_key:
         env_key = os.getenv("LLM_API_KEY")
         if env_key:
             args.api_key = env_key
 
-    if not args.api_url:
-        print("[WARN] api_url is empty. Please pass --api_url or set LLM_API_URL.")
+    if not args.base_url:
+        print("[WARN] base_url is empty. Please pass --base_url or set LLM_API_URL.")
     if not args.api_key:
         print("[WARN] api_key is empty. Please pass --api_key or set LLM_API_KEY.")
 
@@ -494,7 +500,7 @@ if __name__ == "__main__":
         user2items=user2items,
         item2users=item2users,
         item_info=item_info,
-        api_url=args.api_url,
+        base_url=args.base_url,
         api_key=args.api_key,
         model_name=args.model_name,
         history_length=args.history_length,
